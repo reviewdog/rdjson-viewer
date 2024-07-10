@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+const pako = require('pako');
+
 
 const LocationRange = ({ range }) => {
   if (!range) return null;
@@ -221,6 +223,12 @@ const DiagnosticStats = ({ diagnostics }) => {
   );
 };
 
+const decompressUrlParamData = (b64) => {
+	const compressed = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+	const decompressed = pako.inflate(compressed);
+	return new TextDecoder().decode(decompressed);
+};
+
 const RDJSONViewer = () => {
   const [inputData, setInputData] = useState('');
   const [inputFormat, setInputFormat] = useState('rdjson');
@@ -245,7 +253,7 @@ const RDJSONViewer = () => {
 
     if (rdjsonParam) {
       try {
-        const decodedData = decodeURIComponent(rdjsonParam);
+        const decodedData = decompressUrlParamData(rdjsonParam);
         setInputData(decodedData);
         setInputFormat('rdjson');
         parseAndSetDiagnosticResult(decodedData, 'rdjson');
@@ -254,7 +262,7 @@ const RDJSONViewer = () => {
       }
     } else if (rdjsonlParam) {
       try {
-        const decodedData = decodeURIComponent(rdjsonlParam);
+        const decodedData = decompressUrlParamData(rdjsonlParam);
         setInputData(decodedData);
         setInputFormat('rdjsonl');
         parseAndSetDiagnosticResult(decodedData, 'rdjsonl');
@@ -332,7 +340,10 @@ const RDJSONViewer = () => {
 
   const updateURL = (data, format, basePath) => {
     const urlParams = new URLSearchParams();
-    urlParams.set(format, encodeURIComponent(data));
+    const bin = new TextEncoder().encode(data);
+    const compressed = pako.deflate(bin);
+    const b64 = btoa(String.fromCharCode(...compressed));
+    urlParams.set(format, b64);
     if (basePath) {
       urlParams.set('base_path_url', encodeURIComponent(basePath));
     }
